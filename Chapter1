@@ -1,223 +1,180 @@
---// Load Luna GUI
-local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/main/source.lua"))()
+--// UPDATED TO V2         [ V3 SOON ]
+                           [ BUG REPORT ] - @drakedabest on discord
+[ FIXED BUGS ]
+- Not Executing
+- Not Working Auto Collect
+- Not working Tp Safe
+- Not Working ESP Rat
 
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
+-- Load libraries
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
-local ESP_Enabled = false
-local RatESP_Enabled = false
-local Noclip = false
-local Flying = false
-
---// GUI Setup
-local Window = Luna:CreateWindow({
-    Name = "Cheese Escape Hub",
-    Subtitle = "By Frenzy | Luna Suite",
-    LoadingTitle = "Cheese ESP Init",
-    LoadingSubtitle = "Loading modules...",
-    ConfigSettings = { ConfigFolder = "CheeseEscapeHub" },
-    KeySystem = false
+-- Create window
+local Window = Fluent:CreateWindow({
+    Title = "Cheese Escape | NebulaStrike",
+    SubTitle = "Fluent v" .. Fluent.Version,
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
 })
 
-local Main = Window:CreateTab("Main")
-local Player = Window:CreateTab("Player")
-local Teleports = Window:CreateTab("Teleports")
-local Visuals = Window:CreateTab("Visuals")
-local Settings = Window:CreateTab("Settings")
+-- Tabs
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "mouse-pointer" }),
+    Utility = Window:AddTab({ Title = "Utility", Icon = "tool" }),
+    Save = Window:AddTab({ Title = "Save", Icon = "save" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
 
---// ESP Functions
-local function highlight(part, color)
-    local h = Instance.new("Highlight", part)
-    h.FillColor = color
-    h.FillTransparency = 0.5
-    h.OutlineColor = Color3.new(1, 1, 1)
-end
+local Options = Fluent.Options
 
-local function toggleCheeseESP(state)
-    ESP_Enabled = state
-    for _, cheese in pairs(Workspace:GetDescendants()) do
-        if cheese.Name:lower():find("cheese") and cheese:IsA("BasePart") then
-            if state then
-                highlight(cheese, Color3.fromRGB(255, 255, 0))
-            else
-                if cheese:FindFirstChildOfClass("Highlight") then
-                    cheese:FindFirstChildOfClass("Highlight"):Destroy()
+-- ========== ESP: Rats ==========
+Tabs.Main:AddButton({
+    Title = "ESP Rats",
+    Description = "Highlights all rat NPCs",
+    Callback = function()
+        for _, rat in pairs(workspace:GetDescendants()) do
+            if rat:IsA("Model") and rat:FindFirstChild("HumanoidRootPart") and string.find(rat.Name:lower(), "rat") then
+                if not rat:FindFirstChild("ESPHighlight") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESPHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.new(0, 0, 0)
+                    highlight.FillTransparency = 0.2
+                    highlight.OutlineTransparency = 0
+                    highlight.Adornee = rat
+                    highlight.Parent = rat
                 end
             end
         end
     end
-end
+})
 
-local function toggleRatESP(state)
-    RatESP_Enabled = state
-    for _, rat in pairs(Workspace:GetChildren()) do
-        if rat.Name:lower():find("rat") and rat:FindFirstChild("HumanoidRootPart") then
-            if state then
-                highlight(rat.HumanoidRootPart, Color3.fromRGB(255, 0, 0))
-            else
-                if rat.HumanoidRootPart:FindFirstChildOfClass("Highlight") then
-                    rat.HumanoidRootPart:FindFirstChildOfClass("Highlight"):Destroy()
+-- ========== ESP: Cheese ==========
+Tabs.Main:AddButton({
+    Title = "ESP Cheese",
+    Description = "Highlights all cheese items",
+    Callback = function()
+        for _, cheese in pairs(workspace:GetDescendants()) do
+            if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
+                if not cheese:FindFirstChild("ESPHighlight") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESPHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 255, 0)
+                    highlight.OutlineColor = Color3.new(0, 0, 0)
+                    highlight.FillTransparency = 0.2
+                    highlight.OutlineTransparency = 0
+                    highlight.Adornee = cheese
+                    highlight.Parent = cheese
                 end
             end
         end
     end
-end
+})
 
---// Noclip
-RunService.Stepped:Connect(function()
-    if Noclip and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
+-- ========== Teleport to Cheese ==========
+Tabs.Utility:AddButton({
+    Title = "Teleport to Nearest Cheese",
+    Description = "Instantly go to the closest cheese",
+    Callback = function()
+        local char = game.Players.LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+        local closest, distance = nil, math.huge
+        for _, cheese in pairs(workspace:GetDescendants()) do
+            if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
+                local dist = (char.HumanoidRootPart.Position - cheese.Position).Magnitude
+                if dist < distance then
+                    closest = cheese
+                    distance = dist
+                end
             end
         end
+
+        if closest then
+            char:PivotTo(CFrame.new(closest.Position + Vector3.new(0, 5, 0)))
+        end
+    end
+})
+
+-- ========== Auto Collect ==========
+local AutoCollectToggle = Tabs.Utility:AddToggle("AutoCollectCheese", {
+    Title = "Auto Collect Cheese",
+    Description = "Automatically picks up nearby cheese",
+    Default = false
+})
+
+AutoCollectToggle:OnChanged(function(Value)
+    if Value then
+        getgenv().AutoCollectCheese = true
+        task.spawn(function()
+            while getgenv().AutoCollectCheese do
+                local char = game.Players.LocalPlayer.Character
+                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                for _, cheese in pairs(workspace:GetDescendants()) do
+                    if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
+                        if (char.HumanoidRootPart.Position - cheese.Position).Magnitude < 10 then
+                            char:PivotTo(CFrame.new(cheese.Position + Vector3.new(0, 5, 0)))
+                            wait(0.2)
+                        end
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    else
+        getgenv().AutoCollectCheese = false
     end
 end)
 
---// Fly
-local function setFly(enable)
-    Flying = enable
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local bv = Instance.new("BodyVelocity", hrp)
-    bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-    bv.Velocity = Vector3.zero
-
-    local bg = Instance.new("BodyGyro", hrp)
-    bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-    bg.CFrame = hrp.CFrame
-
-    local flyConn
-    flyConn = RunService.RenderStepped:Connect(function()
-        if not Flying then
-            bv:Destroy()
-            bg:Destroy()
-            flyConn:Disconnect()
-            return
-        end
-
-        local camCF = Workspace.CurrentCamera.CFrame
-        local move = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += camCF.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= camCF.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= camCF.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += camCF.RightVector end
-        bv.Velocity = move * 100
-        bg.CFrame = camCF
-    end)
-end
-
---// Main Tab
-Main:CreateButton({
-    Name = "Auto Collect Cheese",
-    Callback = function()
-        for _, cheese in pairs(Workspace:GetDescendants()) do
-            if cheese.Name:lower():find("cheese") and cheese:IsA("BasePart") then
-                cheese.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-                task.wait(0.1)
-            end
+-- ========== Speed Slider ==========
+Tabs.Utility:AddSlider("SpeedSlider", {
+    Title = "Walk Speed",
+    Description = "Set your movement speed",
+    Default = 16,
+    Min = 10,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char:FindFirstChildOfClass("Humanoid").WalkSpeed = Value
         end
     end
 })
 
-Main:CreateToggle({
-    Name = "ESP: Cheese",
-    CurrentValue = false,
-    Callback = function()
-      toggleCheeseESP
-})
-
-Main:CreateToggle({
-    Name = "ESP: Rat",
-    CurrentValue = false,
-    Callback = function()
-      toggleRatESP
-})
-
---// Teleports Tab
-TeleportTab = Teleports
-
-TeleportTab:CreateButton({
-    Name = "Teleport: Safe Zone",
-    Callback = function()
-        local safe = Workspace:FindFirstChild("SafeZone") or Workspace:FindFirstChild("Safe")
-        if safe and safe:IsA("BasePart") then
-            LocalPlayer.Character:PivotTo(safe.CFrame + Vector3.new(0, 5, 0))
-        end
+-- ========== Nickname Input ==========
+Tabs.Settings:AddInput("Nickname", {
+    Title = "Set Nickname",
+    Default = "CheeseRunner",
+    Placeholder = "Enter name",
+    Callback = function(Value)
+        print("Nickname set to:", Value)
     end
 })
 
-TeleportTab:CreateButton({
-    Name = "Teleport: Exit Door",
-    Callback = function()
-        local door = Workspace:FindFirstChild("Exit") or Workspace:FindFirstChild("Door")
-        if door and door:IsA("BasePart") then
-            LocalPlayer.Character:PivotTo(door.CFrame + Vector3.new(0, 5, 0))
-        end
-    end
+-- ========== Save Manager Setup ==========
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("CheeseEscapeESP")
+SaveManager:SetFolder("CheeseEscapeESP/GameConfigs")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Save)
+
+Window:SelectTab(1)
+
+Fluent:Notify({
+    Title = "Cheese Escape Loaded",
+    Content = "Exploit tools are ready!",
+    Duration = 6
 })
 
-TeleportTab:CreateButton({
-    Name = "Teleport: Start Point",
-    Callback = function()
-        LocalPlayer.Character:PivotTo(CFrame.new(0, 10, 0))
-    end
-})
-
---// Player Tab
-Player:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 100},
-    Increment = 1,
-    CurrentValue = 16,
-    Callback = function(val)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = val
-        end
-    end
-})
-
-Player:CreateSlider({
-    Name = "JumpPower",
-    Range = {50, 150},
-    Increment = 1,
-    CurrentValue = 50,
-    Callback = function(val)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.JumpPower = val
-        end
-    end
-})
-
-Player:CreateToggle({
-    Name = "Enable Noclip",
-    CurrentValue = false,
-    Callback = function(val)
-        Noclip = val
-    end
-})
-
-Player:CreateToggle({
-    Name = "Enable Fly",
-    CurrentValue = false,
-    Callback = function(val)
-        setFly(val)
-    end
-})
-
---// Settings Tab
-Settings:CreateButton({
-    Name = "Reset Character",
-    Callback = function()
-        LocalPlayer:LoadCharacter()
-    end
-})
-
-Settings:CreateParagraph({
-    Title = "Credits",
-    Content = "Frenzy Hub | NebulaStrike\nGUI: Luna Interface Suite\nGame: Cheese Escape"
-})
+SaveManager:LoadAutoloadConfig()

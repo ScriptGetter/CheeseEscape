@@ -1,180 +1,266 @@
---// UPDATED TO V2         [ V3 SOON ]
-                           [ BUG REPORT ] - @drakedabest on discord
-[ FIXED BUGS ]
-- Not Executing
-- Not Working Auto Collect
-- Not working Tp Safe
-- Not Working ESP Rat
-
--- Load libraries
+-- Load required libs
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Create window
 local Window = Fluent:CreateWindow({
-    Title = "Cheese Escape | NebulaStrike",
-    SubTitle = "Fluent v" .. Fluent.Version,
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
+    Title = "NebulaStrike | CE",
+    SubTitle = "R.A.T. v1.0.9",
+    TabWidth = 130, -- narrower tab width
+    Size = UDim2.fromOffset(480, 460), -- smaller width, same height
     Acrylic = true,
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Tabs
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "mouse-pointer" }),
     Utility = Window:AddTab({ Title = "Utility", Icon = "tool" }),
     Save = Window:AddTab({ Title = "Save", Icon = "save" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+    Update = Window:AddTab({ Title = "Update", Icon = "sync" })
 }
 
-local Options = Fluent.Options
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
--- ========== ESP: Rats ==========
-Tabs.Main:AddButton({
-    Title = "ESP Rats",
-    Description = "Highlights all rat NPCs",
-    Callback = function()
-        for _, rat in pairs(workspace:GetDescendants()) do
-            if rat:IsA("Model") and rat:FindFirstChild("HumanoidRootPart") and string.find(rat.Name:lower(), "rat") then
-                if not rat:FindFirstChild("ESPHighlight") then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = "ESPHighlight"
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                    highlight.OutlineColor = Color3.new(0, 0, 0)
-                    highlight.FillTransparency = 0.2
-                    highlight.OutlineTransparency = 0
-                    highlight.Adornee = rat
-                    highlight.Parent = rat
+local function HumanoidRootPart()
+    local char = LocalPlayer.Character
+    if char then
+        return char:FindFirstChild("HumanoidRootPart")
+    end
+    return nil
+end
+
+-- Highlight helper function
+local function applyHighlight(obj, color)
+    if obj and obj:IsA("BasePart") and not obj:FindFirstChild("ESPHighlight") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = color
+        highlight.OutlineColor = Color3.new(0, 0, 0)
+        highlight.FillTransparency = 0.25
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = obj
+        highlight.Parent = obj
+    end
+end
+
+-- Safe Spots for rat avoidance
+local safeSpots = {
+    Vector3.new(20, 5, -50),
+    Vector3.new(70, 5, 30),
+    Vector3.new(-80, 5, 20),
+    Vector3.new(100, 5, -100),
+    Vector3.new(-60, 5, -60)
+}
+
+-- Avoid rats toggle and logic
+local AvoidRats = false
+
+local function getClosestRat()
+    local closest, dist = nil, math.huge
+    for _, rat in pairs(Workspace:GetDescendants()) do
+        if rat:IsA("Model") and rat:FindFirstChild("HumanoidRootPart") and rat.Name:lower():find("rat") then
+            local ratHRP = rat.HumanoidRootPart
+            local myHRP = HumanoidRootPart()
+            if ratHRP and myHRP then
+                local d = (ratHRP.Position - myHRP.Position).Magnitude
+                if d < dist then
+                    closest = ratHRP
+                    dist = d
                 end
+            end
+        end
+    end
+    return closest, dist
+end
+
+local function teleportToSafeSpot()
+    local charHRP = HumanoidRootPart()
+    if not charHRP then return end
+    local spot = safeSpots[math.random(1, #safeSpots)]
+    charHRP.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
+end
+
+RunService.Heartbeat:Connect(function()
+    if AvoidRats then
+        local rat, dist = getClosestRat()
+        if rat and dist and dist < 25 then
+            teleportToSafeSpot()
+        end
+    end
+end)
+
+-- Teleport mode management
+local teleportMode = "Tween" -- default
+
+local function teleportToPosition(pos)
+    local charHRP = HumanoidRootPart()
+    if not charHRP then return end
+
+    if teleportMode == "Tween" then
+        local distance = (charHRP.Position - pos).Magnitude
+        local tweenInfo = TweenInfo.new(
+            distance / 100, -- speed based on distance
+            Enum.EasingStyle.Linear
+        )
+        local tween = TweenService:Create(charHRP, tweenInfo, {CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))})
+        tween:Play()
+    else -- Direct teleport
+        charHRP.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+    end
+end
+
+-- === GUI Elements ===
+
+-- Highlight Cheese Button
+Tabs.Main:AddButton({
+    Title = "Highlight Cheese",
+    Callback = function()
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:lower():find("cheese") then
+                applyHighlight(obj, Color3.fromRGB(255, 255, 0))
             end
         end
     end
 })
 
--- ========== ESP: Cheese ==========
+-- Highlight Rats Button
 Tabs.Main:AddButton({
-    Title = "ESP Cheese",
-    Description = "Highlights all cheese items",
+    Title = "Highlight Rats",
     Callback = function()
-        for _, cheese in pairs(workspace:GetDescendants()) do
-            if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
-                if not cheese:FindFirstChild("ESPHighlight") then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = "ESPHighlight"
-                    highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                    highlight.OutlineColor = Color3.new(0, 0, 0)
-                    highlight.FillTransparency = 0.2
-                    highlight.OutlineTransparency = 0
-                    highlight.Adornee = cheese
-                    highlight.Parent = cheese
-                end
+        for _, rat in pairs(Workspace:GetDescendants()) do
+            if rat:IsA("Model") and rat:FindFirstChild("HumanoidRootPart") and rat.Name:lower():find("rat") then
+                applyHighlight(rat, Color3.fromRGB(255, 0, 0))
             end
         end
     end
 })
 
--- ========== Teleport to Cheese ==========
+-- Teleport Mode Dropdown
+Tabs.Utility:AddDropdown("TeleportMode", {
+    Title = "Teleport Mode",
+    Description = "Choose teleport method",
+    Default = "Tween",
+    Items = { "Tween", "Direct" },
+    MultiSelect = false,
+    Callback = function(value)
+        teleportMode = value
+    end
+})
+
+-- Teleport To Nearest Cheese Button
 Tabs.Utility:AddButton({
-    Title = "Teleport to Nearest Cheese",
-    Description = "Instantly go to the closest cheese",
+    Title = "Teleport To Nearest Cheese",
+    Description = "Teleport to closest cheese on map",
     Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local charHRP = HumanoidRootPart()
+        if not charHRP then return end
 
-        local closest, distance = nil, math.huge
-        for _, cheese in pairs(workspace:GetDescendants()) do
-            if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
-                local dist = (char.HumanoidRootPart.Position - cheese.Position).Magnitude
-                if dist < distance then
+        local closest, dist = nil, math.huge
+        for _, cheese in pairs(Workspace:GetDescendants()) do
+            if cheese:IsA("BasePart") and cheese.Name:lower():find("cheese") then
+                local d = (cheese.Position - charHRP.Position).Magnitude
+                if d < dist then
                     closest = cheese
-                    distance = dist
+                    dist = d
                 end
             end
         end
 
         if closest then
-            char:PivotTo(CFrame.new(closest.Position + Vector3.new(0, 5, 0)))
+            teleportToPosition(closest.Position)
         end
     end
 })
 
--- ========== Auto Collect ==========
+-- Auto Collect Cheese Toggle
 local AutoCollectToggle = Tabs.Utility:AddToggle("AutoCollectCheese", {
     Title = "Auto Collect Cheese",
-    Description = "Automatically picks up nearby cheese",
+    Description = "Automatically collects all cheese and teleports to exit after",
     Default = false
 })
 
-AutoCollectToggle:OnChanged(function(Value)
-    if Value then
+local collectedCheeseCount = 0
+local totalCheeseNeeded = 9
+
+AutoCollectToggle:OnChanged(function(value)
+    if value then
         getgenv().AutoCollectCheese = true
+        collectedCheeseCount = 0
         task.spawn(function()
             while getgenv().AutoCollectCheese do
-                local char = game.Players.LocalPlayer.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-                for _, cheese in pairs(workspace:GetDescendants()) do
-                    if cheese:IsA("BasePart") and string.find(cheese.Name:lower(), "cheese") then
-                        if (char.HumanoidRootPart.Position - cheese.Position).Magnitude < 10 then
-                            char:PivotTo(CFrame.new(cheese.Position + Vector3.new(0, 5, 0)))
-                            wait(0.2)
-                        end
+                local charHRP = HumanoidRootPart()
+                if not charHRP then break end
+
+                -- Get all cheese parts on map (any distance)
+                local cheeseList = {}
+                for _, cheese in pairs(Workspace:GetDescendants()) do
+                    if cheese:IsA("BasePart") and cheese.Name:lower():find("cheese") then
+                        table.insert(cheeseList, cheese)
                     end
                 end
-                task.wait(1)
+
+                if #cheeseList == 0 or collectedCheeseCount >= totalCheeseNeeded then
+                    -- Teleport to exit after collecting all cheese
+                    local exitPart = Workspace:FindFirstChild("Exit")
+                    if exitPart and exitPart:IsA("BasePart") then
+                        teleportToPosition(exitPart.Position)
+                    end
+                    break
+                else
+                    -- Pick any cheese from the list (not just nearest)
+                    local targetCheese = cheeseList[1]
+                    if targetCheese then
+                        teleportToPosition(targetCheese.Position)
+                        collectedCheeseCount = collectedCheeseCount + 1
+                        task.wait(1) -- wait so cheese can be collected
+                    end
+                end
+
+                task.wait(0.5)
             end
         end)
     else
         getgenv().AutoCollectCheese = false
+        collectedCheeseCount = 0
     end
 end)
 
--- ========== Speed Slider ==========
+-- WalkSpeed Slider
 Tabs.Utility:AddSlider("SpeedSlider", {
     Title = "Walk Speed",
-    Description = "Set your movement speed",
+    Description = "Change your walk speed",
     Default = 16,
     Min = 10,
     Max = 100,
     Rounding = 0,
-    Callback = function(Value)
-        local char = game.Players.LocalPlayer.Character
+    Callback = function(value)
+        local char = LocalPlayer.Character
         if char and char:FindFirstChildOfClass("Humanoid") then
-            char:FindFirstChildOfClass("Humanoid").WalkSpeed = Value
+            char:FindFirstChildOfClass("Humanoid").WalkSpeed = value
         end
     end
 })
 
--- ========== Nickname Input ==========
-Tabs.Settings:AddInput("Nickname", {
-    Title = "Set Nickname",
-    Default = "CheeseRunner",
-    Placeholder = "Enter name",
-    Callback = function(Value)
-        print("Nickname set to:", Value)
+-- Avoid Rats Toggle
+Tabs.Utility:AddToggle("AvoidRatsToggle", {
+    Title = "Avoid Rats",
+    Description = "Automatically teleport away from rats nearby",
+    Default = false,
+    Callback = function(value)
+        AvoidRats = value
     end
 })
 
--- ========== Save Manager Setup ==========
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("CheeseEscapeESP")
-SaveManager:SetFolder("CheeseEscapeESP/GameConfigs")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+-- Save Manager integration (optional, depends on your needs)
+SaveManager:SetLibrary(Window)
 SaveManager:BuildConfigSection(Tabs.Save)
+InterfaceManager:SetLibrary(Window)
+InterfaceManager:BuildConfigSection(Tabs.Settings)
 
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = "Cheese Escape Loaded",
-    Content = "Exploit tools are ready!",
-    Duration = 6
-})
-
-SaveManager:LoadAutoloadConfig()
+-- End of script
